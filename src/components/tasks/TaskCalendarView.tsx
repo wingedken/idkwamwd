@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Clock, User, MapPin, AlertTriangle, CheckCircle, Navigation, Phone, Mail, Zap } from 'lucide-react';
+import { Clock, User, MapPin, AlertTriangle, CheckCircle, Navigation, Phone, Mail, Zap, Play, Square, MoreVertical } from 'lucide-react';
 
 interface Employee {
   id: string;
@@ -59,13 +59,14 @@ export default function TaskCalendarView({
   const [draggedFromTime, setDraggedFromTime] = useState<Date | null>(null);
   const [showEmployeeDetails, setShowEmployeeDetails] = useState<string | null>(null);
   const [hoveredSlot, setHoveredSlot] = useState<{ employeeId: string; time: Date } | null>(null);
+  const [showTaskMenu, setShowTaskMenu] = useState<string | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  // Generer tidsintervaller (8:00 - 18:00, hvert 15. minut for præcision som beskrevet)
+  // Generer tidsintervaller (6:00 - 20:00, hvert 15. minut for præcision som beskrevet)
   const timeSlots = [];
-  for (let hour = 8; hour <= 18; hour++) {
+  for (let hour = 6; hour <= 20; hour++) {
     for (let minute = 0; minute < 60; minute += 15) {
-      if (hour === 18 && minute > 0) break;
+      if (hour === 20 && minute > 0) break;
       timeSlots.push(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), hour, minute));
     }
   }
@@ -158,9 +159,9 @@ export default function TaskCalendarView({
           employee.skills.includes(skill)
         );
         
-        if (!hasRequiredSkills) {
-          alert(`${employee.name} har ikke de nødvendige færdigheder for denne opgave:\n${task.requiredSkills.join(', ')}`);
-          return;
+        if (!hasRequiredSkills && task.requiredSkills.length > 0) {
+          const confirmed = window.confirm(`⚠️ ${employee.name} har ikke alle nødvendige færdigheder for denne opgave:\n\nPåkrævet: ${task.requiredSkills.join(', ')}\nMedarbejder har: ${employee.skills.join(', ')}\n\nVil du fortsætte alligevel?`);
+          if (!confirmed) return;
         }
         
         // Tjek for konflikter og advar blødt som beskrevet
@@ -190,6 +191,11 @@ export default function TaskCalendarView({
     setDraggedFromTime(null);
   };
 
+  const handleTaskStatusChange = (taskId: string, newStatus: Task['status']) => {
+    onTaskUpdate(taskId, { status: newStatus });
+    setShowTaskMenu(null);
+  };
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
   };
@@ -217,8 +223,31 @@ export default function TaskCalendarView({
     }
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return <Clock className="h-3 w-3" />;
+      case 'in_progress': return <Play className="h-3 w-3" />;
+      case 'completed': return <CheckCircle className="h-3 w-3" />;
+      case 'cancelled': return <Square className="h-3 w-3" />;
+      default: return <Clock className="h-3 w-3" />;
+    }
+  };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!calendarRef.current?.contains(event.target as Node)) {
+        setShowEmployeeDetails(null);
+        setShowTaskMenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" ref={calendarRef}>
       {/* Medarbejder headers med live status som beskrevet */}
       <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
         <div className="w-20 flex-shrink-0 p-4 border-r border-gray-200">
@@ -233,7 +262,7 @@ export default function TaskCalendarView({
           return (
             <div 
               key={employee.id} 
-              className={`flex-1 p-4 border-r border-gray-200 cursor-pointer transition-all duration-200 ${
+              className={`flex-1 p-4 border-r border-gray-200 cursor-pointer transition-all duration-200 relative ${
                 selectedEmployee === employee.id ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-100'
               }`}
               onClick={() => onEmployeeSelect(selectedEmployee === employee.id ? null : employee.id)}
@@ -286,7 +315,7 @@ export default function TaskCalendarView({
               
               <div className="text-xs text-gray-500 flex justify-between">
                 <span>{employeeTasks.length} opgaver</span>
-                <span>{Math.round(workload.totalMinutes / 60)}t/{Math.round(workload.totalMinutes % 60)}m</span>
+                <span>{Math.round(workload.totalMinutes / 60)}t {Math.round(workload.totalMinutes % 60)}m</span>
               </div>
               
               {/* Overbelastning advarsel som beskrevet */}
@@ -299,19 +328,33 @@ export default function TaskCalendarView({
               
               {/* Employee details dropdown */}
               {showEmployeeDetails === employee.id && (
-                <div className="absolute z-20 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+                <div className="absolute z-20 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 p-4 left-0 top-full">
                   <div className="space-y-3">
                     <div className="flex items-center text-sm">
                       <Mail className="h-4 w-4 mr-2 text-gray-400" />
                       <span>{employee.email}</span>
+                      <a
+                        href={`mailto:${employee.email}`}
+                        className="ml-auto text-blue-600 hover:text-blue-700 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Send email
+                      </a>
                     </div>
                     <div className="flex items-center text-sm">
                       <Phone className="h-4 w-4 mr-2 text-gray-400" />
                       <span>{employee.phone}</span>
+                      <a
+                        href={`tel:${employee.phone}`}
+                        className="ml-auto text-blue-600 hover:text-blue-700 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Ring op
+                      </a>
                     </div>
                     <div className="flex items-center text-sm">
                       <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                      <span>{employee.startAddress}</span>
+                      <span className="text-xs">{employee.startAddress}</span>
                     </div>
                     <div className="pt-2 border-t border-gray-200">
                       <span className="text-xs font-medium text-gray-500">Færdigheder:</span>
@@ -339,13 +382,13 @@ export default function TaskCalendarView({
       </div>
 
       {/* Kalender grid med forbedret drag & drop som beskrevet */}
-      <div ref={calendarRef} className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto">
         <div className="flex">
           {/* Tidskolonne - rækkerne viser tidsintervaller som beskrevet */}
           <div className="w-20 flex-shrink-0 border-r border-gray-200 bg-gray-50">
             {timeSlots.map((timeSlot, index) => (
               <div key={timeSlot.getTime()} className={`h-10 border-b border-gray-100 p-2 text-xs text-gray-500 ${
-                index % 4 === 0 ? 'font-medium' : ''
+                index % 4 === 0 ? 'font-medium border-b-gray-200' : ''
               }`}>
                 {index % 4 === 0 ? formatTime(timeSlot) : ''}
               </div>
@@ -374,7 +417,7 @@ export default function TaskCalendarView({
                   >
                     {/* Opgaver som blokke der kan trækkes rundt som beskrevet */}
                     {tasksAtTime.map(task => {
-                      const isFirstSlot = Math.floor((task.startTime.getHours() * 60 + task.startTime.getMinutes() - 8 * 60) / 15) === slotIndex;
+                      const isFirstSlot = Math.floor((task.startTime.getHours() * 60 + task.startTime.getMinutes() - 6 * 60) / 15) === slotIndex;
                       
                       if (!isFirstSlot) return null;
                       
@@ -401,6 +444,15 @@ export default function TaskCalendarView({
                               {isNearTask && (
                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Medarbejder er nær opgaven"></div>
                               )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowTaskMenu(showTaskMenu === task.id ? null : task.id);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 p-0.5 rounded hover:bg-white"
+                              >
+                                <MoreVertical className="h-3 w-3" />
+                              </button>
                             </div>
                           </div>
                           
@@ -409,8 +461,8 @@ export default function TaskCalendarView({
                           </div>
                           
                           <div className="flex items-center text-xs text-gray-500">
-                            <Clock className="h-3 w-3 mr-1" />
-                            <span>{formatTime(task.startTime)}-{formatTime(task.endTime)}</span>
+                            {getStatusIcon(task.status)}
+                            <span className="ml-1">{formatTime(task.startTime)}-{formatTime(task.endTime)}</span>
                           </div>
                           
                           {task.estimatedDuration > 60 && (
@@ -429,6 +481,37 @@ export default function TaskCalendarView({
                               <div className="w-2 h-2 bg-orange-500 rounded-full" title="Dokumentation påkrævet"></div>
                             )}
                           </div>
+
+                          {/* Task Menu */}
+                          {showTaskMenu === task.id && (
+                            <div className="absolute top-8 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30 min-w-32">
+                              <button
+                                onClick={() => handleTaskStatusChange(task.id, 'in_progress')}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center"
+                              >
+                                <Play className="h-3 w-3 mr-2" />
+                                Start opgave
+                              </button>
+                              <button
+                                onClick={() => handleTaskStatusChange(task.id, 'completed')}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center"
+                              >
+                                <CheckCircle className="h-3 w-3 mr-2" />
+                                Afslut opgave
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(task.address)}`;
+                                  window.open(url, '_blank');
+                                  setShowTaskMenu(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center"
+                              >
+                                <Navigation className="h-3 w-3 mr-2" />
+                                Navigation
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

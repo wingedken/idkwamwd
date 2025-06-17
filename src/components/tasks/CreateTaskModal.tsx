@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, MapPin, Clock, User, AlertTriangle, Calendar, Repeat, FileText, Zap } from 'lucide-react';
+import { X, MapPin, Clock, User, AlertTriangle, Calendar, Repeat, FileText, Zap, Building } from 'lucide-react';
 import SmartAddressLookup from '../smart/SmartAddressLookup';
 import SmartCVRLookup from '../smart/SmartCVRLookup';
 
@@ -137,7 +137,7 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
     customerName: '',
     customerCVR: '',
     address: '',
-    coordinates: { lat: 0, lng: 0 },
+    coordinates: { lat: 55.6761, lng: 12.5683 }, // Default Copenhagen
     date: new Date().toISOString().split('T')[0],
     startTime: '08:00',
     estimatedDuration: 120,
@@ -367,10 +367,10 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                     Kunde
                   </label>
                   <button
-                    onClick={() => setShowCVRLookup(true)}
+                    onClick={() => setShowCVRLookup(!showCVRLookup)}
                     className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
                   >
-                    <Zap className="h-4 w-4 mr-1" />
+                    <Building className="h-4 w-4 mr-1" />
                     CVR opslag
                   </button>
                 </div>
@@ -396,6 +396,7 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                       value={formData.customerName}
                       onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
                       placeholder="Kundenavn..."
+                      required
                     />
                     <input
                       type="text"
@@ -434,6 +435,7 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                     className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                     value={formData.date}
                     onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    required
                   />
                 </div>
 
@@ -446,6 +448,7 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                     className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                     value={formData.startTime}
                     onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+                    required
                   />
                 </div>
 
@@ -459,7 +462,7 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                     step="15"
                     className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                     value={formData.estimatedDuration}
-                    onChange={(e) => setFormData(prev => ({ ...prev, estimatedDuration: parseInt(e.target.value) }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, estimatedDuration: parseInt(e.target.value) || 120 }))}
                   />
                 </div>
               </div>
