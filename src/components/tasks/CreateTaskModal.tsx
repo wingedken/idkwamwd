@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, MapPin, Clock, User, AlertTriangle, Calendar, Repeat, FileText, Zap, Building } from 'lucide-react';
+import { X, MapPin, Clock, User, AlertTriangle, Calendar, Repeat, FileText } from 'lucide-react';
 import SmartAddressLookup from '../smart/SmartAddressLookup';
 import SmartCVRLookup from '../smart/SmartCVRLookup';
 
@@ -9,7 +9,6 @@ interface Employee {
   email: string;
   phone: string;
   skills: string[];
-  startAddress: string;
   currentLocation?: { lat: number; lng: number };
   isActive: boolean;
   color: string;
@@ -19,7 +18,6 @@ interface Task {
   id: string;
   title: string;
   description: string;
-  taskType: string;
   customerId: string;
   customerName: string;
   address: string;
@@ -43,80 +41,14 @@ interface CreateTaskModalProps {
   onSubmit: (task: Partial<Task>) => void;
 }
 
-// Danske servicevirksomheds opgavetyper som beskrevet
 const taskTypes = [
-  { 
-    id: 'vinduespolering', 
-    name: 'Vinduespolering', 
-    skills: ['vinduespolering_trad', 'vinduespolering_rent'], 
-    icon: '🪟',
-    estimatedDuration: 180,
-    description: 'Professionel vinduespolering indvendigt og udvendigt'
-  },
-  { 
-    id: 'rengoring', 
-    name: 'Rengøring', 
-    skills: ['rengoring'], 
-    icon: '🧼',
-    estimatedDuration: 240,
-    description: 'Grundig rengøring af faciliteter'
-  },
-  { 
-    id: 'gulvbehandling', 
-    name: 'Gulvbehandling', 
-    skills: ['gulvbehandling'], 
-    icon: '🧴',
-    estimatedDuration: 300,
-    description: 'Specialbehandling og pleje af gulve'
-  },
-  { 
-    id: 'algerens', 
-    name: 'Algerens', 
-    skills: ['algerens', 'hojtryk'], 
-    icon: '🧽',
-    estimatedDuration: 360,
-    description: 'Fjernelse af alger fra facader og udendørsområder'
-  },
-  { 
-    id: 'hojtryk', 
-    name: 'Højtryksspuling', 
-    skills: ['hojtryk'], 
-    icon: '💦',
-    estimatedDuration: 120,
-    description: 'Rengøring med højtryksspuler'
-  },
-  { 
-    id: 'fliserens', 
-    name: 'Fliserens', 
-    skills: ['fliserens'], 
-    icon: '🧹',
-    estimatedDuration: 180,
-    description: 'Specialrens af fliser og fuger'
-  },
-  { 
-    id: 'taepper', 
-    name: 'Tæpperens', 
-    skills: ['taepper'], 
-    icon: '🧶',
-    estimatedDuration: 150,
-    description: 'Professionel tæpperens'
-  },
-  { 
-    id: 'specialrens', 
-    name: 'Specialrens', 
-    skills: ['specialrens'], 
-    icon: '🧪',
-    estimatedDuration: 240,
-    description: 'Specialiseret rengøring med særlige krav'
-  },
-  { 
-    id: 'custom', 
-    name: 'Brugerdefineret', 
-    skills: [], 
-    icon: '⚙️',
-    estimatedDuration: 120,
-    description: 'Tilpasset opgave'
-  }
+  { id: 'vinduespolering', name: 'Vinduespolering', skills: ['vinduespolering_trad', 'vinduespolering_rent'], icon: '🪟' },
+  { id: 'rengoring', name: 'Rengøring', skills: ['rengoring'], icon: '🧼' },
+  { id: 'gulvbehandling', name: 'Gulvbehandling', skills: ['gulvbehandling'], icon: '🧴' },
+  { id: 'algerens', name: 'Algerens', skills: ['algerens'], icon: '🧽' },
+  { id: 'hojtryk', name: 'Højtryksspuling', skills: ['hojtryk'], icon: '💦' },
+  { id: 'specialrens', name: 'Specialrens', skills: ['specialrens'], icon: '🧪' },
+  { id: 'custom', name: 'Brugerdefineret', skills: [], icon: '⚙️' }
 ];
 
 const recurrenceOptions = [
@@ -137,7 +69,7 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
     customerName: '',
     customerCVR: '',
     address: '',
-    coordinates: { lat: 55.6761, lng: 12.5683 }, // Default Copenhagen
+    coordinates: { lat: 0, lng: 0 },
     date: new Date().toISOString().split('T')[0],
     startTime: '08:00',
     estimatedDuration: 120,
@@ -152,20 +84,18 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
 
   const [availableEmployees, setAvailableEmployees] = useState<Employee[]>([]);
   const [showCVRLookup, setShowCVRLookup] = useState(false);
-  const [showSkillsConflict, setShowSkillsConflict] = useState(false);
 
-  // Opdater tilgængelige medarbejdere baseret på færdigheder som beskrevet
+  // Opdater tilgængelige medarbejdere baseret på færdigheder
   React.useEffect(() => {
     if (formData.requiredSkills.length === 0) {
       setAvailableEmployees(employees.filter(emp => emp.isActive));
-      setShowSkillsConflict(false);
     } else {
-      const qualified = employees.filter(emp => 
-        emp.isActive && 
-        formData.requiredSkills.some(skill => emp.skills.includes(skill))
+      setAvailableEmployees(
+        employees.filter(emp => 
+          emp.isActive && 
+          formData.requiredSkills.some(skill => emp.skills.includes(skill))
+        )
       );
-      setAvailableEmployees(qualified);
-      setShowSkillsConflict(qualified.length === 0);
     }
   }, [formData.requiredSkills, employees]);
 
@@ -174,13 +104,10 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
       ...prev,
       taskType: taskType.id,
       title: taskType.id === 'custom' ? '' : taskType.name,
-      description: taskType.id === 'custom' ? '' : taskType.description,
-      requiredSkills: taskType.skills,
-      estimatedDuration: taskType.estimatedDuration
+      requiredSkills: taskType.skills
     }));
   };
 
-  // CVR og adresse integration som beskrevet
   const handleAddressSelected = (addressData: any) => {
     // Simuler koordinater baseret på adresse (i produktion ville dette være et rigtigt API kald)
     const mockCoordinates = {
@@ -218,28 +145,6 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
     }));
   };
 
-  // Intelligent tildeling baseret på færdigheder som beskrevet
-  const handleAutoAssign = () => {
-    if (availableEmployees.length > 0) {
-      // Intelligent tildeling baseret på færdigheder og belastning
-      const bestEmployee = availableEmployees.reduce((best, current) => {
-        const bestSkillMatch = formData.requiredSkills.filter(skill => best.skills.includes(skill)).length;
-        const currentSkillMatch = formData.requiredSkills.filter(skill => current.skills.includes(skill)).length;
-        
-        if (currentSkillMatch > bestSkillMatch) return current;
-        if (currentSkillMatch < bestSkillMatch) return best;
-        
-        // Ved lige mange færdigheder, vælg den med færrest opgaver (simuleret)
-        return Math.random() > 0.5 ? current : best;
-      });
-      
-      setFormData(prev => ({
-        ...prev,
-        assignedEmployees: [bestEmployee.id]
-      }));
-    }
-  };
-
   const handleSubmit = () => {
     const startDateTime = new Date(`${formData.date}T${formData.startTime}`);
     const endDateTime = new Date(startDateTime.getTime() + formData.estimatedDuration * 60000);
@@ -247,7 +152,6 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
     const taskData: Partial<Task> = {
       title: formData.title,
       description: formData.description,
-      taskType: formData.taskType,
       customerId: 'temp-' + Date.now(),
       customerName: formData.customerName,
       address: formData.address,
@@ -285,17 +189,16 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-lg font-medium text-gray-900">Opret ny opgave</h3>
-              <p className="text-sm text-gray-600 mt-1">Intelligent opgaveoprettelse med automatisk tildeling</p>
-              <div className="flex items-center mt-3">
+              <div className="flex items-center mt-2">
                 {[1, 2, 3].map(stepNumber => (
                   <div key={stepNumber} className="flex items-center">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                       step >= stepNumber ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
                     }`}>
                       {stepNumber}
                     </div>
                     {stepNumber < 3 && (
-                      <div className={`w-12 h-1 mx-2 transition-colors ${
+                      <div className={`w-12 h-1 mx-2 ${
                         step > stepNumber ? 'bg-blue-600' : 'bg-gray-200'
                       }`}></div>
                     )}
@@ -308,25 +211,24 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
             </button>
           </div>
 
-          {/* Step 1: Opgavetype og kunde som beskrevet */}
+          {/* Step 1: Opgavetype og kunde */}
           {step === 1 && (
             <div className="space-y-6">
               <div>
                 <h4 className="text-md font-medium text-gray-900 mb-4">Vælg opgavetype</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {taskTypes.map(type => (
                     <button
                       key={type.id}
                       onClick={() => handleTaskTypeSelect(type)}
-                      className={`p-4 border-2 rounded-lg text-center transition-all hover:shadow-md ${
+                      className={`p-4 border-2 rounded-lg text-center transition-colors ${
                         formData.taskType === type.id
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className="text-3xl mb-2">{type.icon}</div>
-                      <div className="text-sm font-medium mb-1">{type.name}</div>
-                      <div className="text-xs text-gray-500">{Math.round(type.estimatedDuration / 60)}t {type.estimatedDuration % 60}m</div>
+                      <div className="text-2xl mb-2">{type.icon}</div>
+                      <div className="text-sm font-medium">{type.name}</div>
                     </button>
                   ))}
                 </div>
@@ -349,7 +251,7 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Beskrivelse
+                  Beskrivelse (valgfrit)
                 </label>
                 <textarea
                   rows={3}
@@ -360,23 +262,21 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                 />
               </div>
 
-              {/* CVR integration som beskrevet */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700">
                     Kunde
                   </label>
                   <button
-                    onClick={() => setShowCVRLookup(!showCVRLookup)}
-                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                    onClick={() => setShowCVRLookup(true)}
+                    className="text-sm text-blue-600 hover:text-blue-700"
                   >
-                    <Building className="h-4 w-4 mr-1" />
                     CVR opslag
                   </button>
                 </div>
                 
                 {showCVRLookup ? (
-                  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div className="border border-gray-200 rounded-lg p-4">
                     <SmartCVRLookup
                       onDataFound={handleCVRDataFound}
                       initialCVR={formData.customerCVR}
@@ -396,7 +296,6 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                       value={formData.customerName}
                       onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
                       placeholder="Kundenavn..."
-                      required
                     />
                     <input
                       type="text"
@@ -411,12 +310,12 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
             </div>
           )}
 
-          {/* Step 2: Lokation og tid som beskrevet */}
+          {/* Step 2: Lokation og tid */}
           {step === 2 && (
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Adresse med smart opslag
+                  Adresse
                 </label>
                 <SmartAddressLookup
                   onAddressSelected={handleAddressSelected}
@@ -435,7 +334,6 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                     className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                     value={formData.date}
                     onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                    required
                   />
                 </div>
 
@@ -448,7 +346,6 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                     className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                     value={formData.startTime}
                     onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
-                    required
                   />
                 </div>
 
@@ -462,7 +359,7 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                     step="15"
                     className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                     value={formData.estimatedDuration}
-                    onChange={(e) => setFormData(prev => ({ ...prev, estimatedDuration: parseInt(e.target.value) || 120 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, estimatedDuration: parseInt(e.target.value) }))}
                   />
                 </div>
               </div>
@@ -515,158 +412,97 @@ export default function CreateTaskModal({ employees, onClose, onSubmit }: Create
                   onChange={(e) => setFormData(prev => ({ ...prev, documentationRequired: e.target.checked }))}
                 />
                 <label htmlFor="documentation" className="ml-2 block text-sm text-gray-900">
-                  Dokumentation påkrævet (billeder, rapporter)
+                  Dokumentation påkrævet
                 </label>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Særlige instruktioner
+                  Noter (valgfrit)
                 </label>
                 <textarea
                   rows={3}
                   className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Særlige instruktioner, adgangskoder, kontaktpersoner..."
+                  placeholder="Særlige instruktioner eller noter..."
                 />
               </div>
             </div>
           )}
 
-          {/* Step 3: Intelligent medarbejdertildeling som beskrevet */}
+          {/* Step 3: Medarbejdertildeling */}
           {step === 3 && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h4 className="text-md font-medium text-gray-900">
-                  Intelligent medarbejdertildeling
+              <div>
+                <h4 className="text-md font-medium text-gray-900 mb-4">
+                  Tildel medarbejdere
                 </h4>
-                {availableEmployees.length > 0 && (
-                  <button
-                    onClick={handleAutoAssign}
-                    className="inline-flex items-center px-3 py-2 border border-blue-300 rounded-lg text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
-                  >
-                    <Zap className="h-4 w-4 mr-2" />
-                    Auto-tildel
-                  </button>
-                )}
-              </div>
-              
-              {formData.requiredSkills.length > 0 && (
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="text-sm font-medium text-blue-800 mb-2">Påkrævede færdigheder:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.requiredSkills.map(skill => (
-                      <span key={skill} className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {showSkillsConflict && (
-                <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                  <div className="flex">
-                    <AlertTriangle className="h-5 w-5 text-orange-400 mr-3 mt-0.5" />
-                    <div>
-                      <h4 className="text-sm font-medium text-orange-800">Ingen kvalificerede medarbejdere</h4>
-                      <p className="text-sm text-orange-700 mt-1">
-                        Ingen medarbejdere har de nødvendige færdigheder. Du kan stadig tildele opgaven, men det anbefales at træne medarbejdere eller justere kravene.
-                      </p>
+                
+                {formData.requiredSkills.length > 0 && (
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="text-sm font-medium text-blue-800 mb-2">Påkrævede færdigheder:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.requiredSkills.map(skill => (
+                        <span key={skill} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                          {skill}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {availableEmployees.length === 0 && !showSkillsConflict ? (
-                <div className="text-center py-8 text-gray-500">
-                  <User className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                  <p>Ingen aktive medarbejdere tilgængelige</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(showSkillsConflict ? employees.filter(emp => emp.isActive) : availableEmployees).map(employee => {
-                    const hasRequiredSkills = formData.requiredSkills.every(skill => employee.skills.includes(skill));
-                    const skillMatch = formData.requiredSkills.filter(skill => employee.skills.includes(skill)).length;
-                    
-                    return (
+                {availableEmployees.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <User className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                    <p>Ingen medarbejdere har de nødvendige færdigheder</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {availableEmployees.map(employee => (
                       <div
                         key={employee.id}
-                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
                           formData.assignedEmployees.includes(employee.id)
-                            ? 'border-blue-500 bg-blue-50 shadow-md'
-                            : hasRequiredSkills 
-                            ? 'border-green-200 hover:border-green-300 bg-green-50'
-                            : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
                         }`}
                         onClick={() => handleEmployeeToggle(employee.id)}
                       >
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center">
                             <div 
-                              className="w-4 h-4 rounded-full mr-3"
+                              className="w-3 h-3 rounded-full mr-2"
                               style={{ backgroundColor: employee.color }}
                             ></div>
-                            <div>
-                              <span className="font-medium text-gray-900">{employee.name}</span>
-                              {employee.currentLocation && (
-                                <div className="flex items-center mt-1">
-                                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-1"></div>
-                                  <span className="text-xs text-green-600">Live lokation</span>
-                                </div>
-                              )}
+                            <span className="font-medium">{employee.name}</span>
+                          </div>
+                          {formData.assignedEmployees.includes(employee.id) && (
+                            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs">✓</span>
                             </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            {hasRequiredSkills && (
-                              <div className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                                <span className="text-xs">✓</span>
-                              </div>
-                            )}
-                            {formData.assignedEmployees.includes(employee.id) && (
-                              <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                                <span className="text-white text-xs">✓</span>
-                              </div>
-                            )}
-                          </div>
+                          )}
                         </div>
                         
-                        <div className="text-sm text-gray-600 mb-3">
-                          <div>{employee.email}</div>
-                          <div>{employee.phone}</div>
-                        </div>
+                        <div className="text-sm text-gray-600 mb-2">{employee.email}</div>
                         
-                        <div className="space-y-2">
-                          <div className="text-xs text-gray-500">
-                            Færdigheder ({skillMatch}/{formData.requiredSkills.length} match):
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {employee.skills.slice(0, 4).map(skill => (
-                              <span 
-                                key={skill} 
-                                className={`px-2 py-1 text-xs rounded ${
-                                  formData.requiredSkills.includes(skill)
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-gray-100 text-gray-700'
-                                }`}
-                              >
-                                {skill}
-                              </span>
-                            ))}
-                            {employee.skills.length > 4 && (
-                              <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-                                +{employee.skills.length - 4}
-                              </span>
-                            )}
-                          </div>
+                        <div className="flex flex-wrap gap-1">
+                          {employee.skills.slice(0, 3).map(skill => (
+                            <span key={skill} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                              {skill}
+                            </span>
+                          ))}
+                          {employee.skills.length > 3 && (
+                            <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                              +{employee.skills.length - 3}
+                            </span>
+                          )}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

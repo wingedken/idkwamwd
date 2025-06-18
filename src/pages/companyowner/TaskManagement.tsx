@@ -1,216 +1,256 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Map, Plus, Search, Filter, Users, Navigation, Zap, Settings, Clock, CheckSquare, AlertTriangle } from 'lucide-react';
+import { Calendar, Map, Users, Plus, Settings, Filter, Search, Clock, MapPin, User, AlertTriangle, CheckCircle, Navigation, Zap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import TaskCalendar from '../../components/tasks/TaskCalendar';
-import TaskCreationWizard from '../../components/tasks/TaskCreationWizard';
-import { taskService } from '../../services/taskService';
-import { routeService } from '../../services/routeService';
-import type { Task, Employee, Customer, TaskTemplate } from '../../types';
+import TaskCalendarView from '../../components/tasks/TaskCalendarView';
+import TaskMapView from '../../components/tasks/TaskMapView';
+import CreateTaskModal from '../../components/tasks/CreateTaskModal';
+import TaskTemplateModal from '../../components/tasks/TaskTemplateModal';
+import RouteOptimizationPanel from '../../components/tasks/RouteOptimizationPanel';
 
-// Mock data - i produktion ville dette komme fra API
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  skills: string[];
+  currentLocation?: { lat: number; lng: number };
+  isActive: boolean;
+  color: string;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  customerId: string;
+  customerName: string;
+  address: string;
+  coordinates: { lat: number; lng: number };
+  startTime: Date;
+  endTime: Date;
+  estimatedDuration: number;
+  assignedEmployees: string[];
+  requiredSkills: string[];
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  isRecurring: boolean;
+  recurrencePattern?: string;
+  notes?: string;
+  documentationRequired: boolean;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface Route {
+  id: string;
+  employeeId: string;
+  date: Date;
+  tasks: Task[];
+  optimizedOrder: string[];
+  totalDistance: number;
+  totalDuration: number;
+  startLocation: { lat: number; lng: number };
+  isOptimized: boolean;
+}
+
 const mockEmployees: Employee[] = [
   {
     id: '1',
-    user_id: 'Lars Nielsen',
-    company_id: 'company-1',
-    role_id: 'cleaner',
-    skills: ['cleaning', 'window_cleaning'],
-    start_address: 'Erhvervsvej 123, 2000 Frederiksberg',
-    current_location: { lat: 55.6761, lng: 12.5683 },
-    is_active: true,
-    color: '#3B82F6',
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
+    name: 'Lars Nielsen',
+    email: 'lars@eksempelservice.dk',
+    phone: '+45 20 12 34 56',
+    skills: ['vinduespolering_trad', 'vinduespolering_rent', 'hojde'],
+    currentLocation: { lat: 55.6761, lng: 12.5683 },
+    isActive: true,
+    color: '#3B82F6'
   },
   {
     id: '2',
-    user_id: 'Maria Hansen',
-    company_id: 'company-1',
-    role_id: 'cleaner',
-    skills: ['cleaning', 'floor_treatment'],
-    start_address: 'Erhvervsvej 123, 2000 Frederiksberg',
-    current_location: { lat: 55.6861, lng: 12.5783 },
-    is_active: true,
-    color: '#10B981',
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
+    name: 'Maria Hansen',
+    email: 'maria@eksempelservice.dk',
+    phone: '+45 30 12 34 56',
+    skills: ['rengoring', 'taepper', 'gulvbehandling'],
+    currentLocation: { lat: 55.6861, lng: 12.5783 },
+    isActive: true,
+    color: '#10B981'
+  },
+  {
+    id: '3',
+    name: 'Peter Andersen',
+    email: 'peter@eksempelservice.dk',
+    phone: '+45 40 12 34 56',
+    skills: ['algerens', 'fliserens', 'hojtryk', 'specialrens'],
+    currentLocation: { lat: 55.6961, lng: 12.5883 },
+    isActive: true,
+    color: '#F59E0B'
   }
 ];
 
-const mockCustomers: Customer[] = [
+const mockTasks: Task[] = [
   {
     id: '1',
-    company_id: 'company-1',
-    name: 'Netto Supermarked',
-    cvr: '12345678',
-    email: 'kontakt@netto.dk',
-    phone: '+45 70 12 34 56',
-    contact_person: 'Karen Jensen',
-    addresses: [
-      {
-        id: '1',
-        customer_id: '1',
-        type: 'Hovedadresse',
-        street: 'Hovedgade 123',
-        postal_code: '2000',
-        city: 'Frederiksberg',
-        contact_person: 'Karen Jensen',
-        phone: '+45 70 12 34 56',
-        coordinates: { lat: 55.6761, lng: 12.5683 },
-        is_primary: true,
-        is_active: true
-      }
-    ],
-    is_active: true,
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
-  }
-];
-
-const mockTemplates: TaskTemplate[] = [
-  {
-    id: '1',
-    company_id: 'company-1',
-    name: 'Standard rengøring',
-    task_type: 'cleaning',
-    title: 'Ugentlig rengøring',
-    description: 'Standard rengøring af faciliteter',
-    estimated_duration: 120,
-    documentation_requirements: [
-      {
-        type: 'photo',
-        title: 'Billede af udført arbejde',
-        required: true
-      }
-    ],
-    required_skills: ['cleaning'],
+    title: 'Ugentlig vinduespolering',
+    description: 'Polering af alle vinduer indvendigt og udvendigt',
+    customerId: '1',
+    customerName: 'Netto Supermarked',
+    address: 'Hovedgade 123, 2000 Frederiksberg',
+    coordinates: { lat: 55.6761, lng: 12.5683 },
+    startTime: new Date(2024, 0, 22, 8, 0),
+    endTime: new Date(2024, 0, 22, 12, 0),
+    estimatedDuration: 240,
+    assignedEmployees: ['1'],
+    requiredSkills: ['vinduespolering_trad'],
+    status: 'pending',
     priority: 'medium',
-    usage_count: 15,
-    created_by: 'user-1',
-    created_at: '2024-01-01',
-    updated_at: '2024-01-01'
+    isRecurring: true,
+    recurrencePattern: 'weekly',
+    documentationRequired: false,
+    createdBy: 'admin',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: '2',
+    title: 'Kontorrengøring',
+    description: 'Fuldstændig rengøring af kontorfaciliteter',
+    customerId: '2',
+    customerName: 'Kontorbygning A/S',
+    address: 'Erhvervsvej 45, 2100 København Ø',
+    coordinates: { lat: 55.6861, lng: 12.5783 },
+    startTime: new Date(2024, 0, 22, 13, 0),
+    endTime: new Date(2024, 0, 22, 16, 0),
+    estimatedDuration: 180,
+    assignedEmployees: ['2'],
+    requiredSkills: ['rengoring'],
+    status: 'pending',
+    priority: 'high',
+    isRecurring: false,
+    documentationRequired: true,
+    createdBy: 'admin',
+    createdAt: new Date(),
+    updatedAt: new Date()
   }
 ];
 
 export default function TaskManagement() {
   const { user } = useAuth();
-  
-  // State
   const [viewMode, setViewMode] = useState<'calendar' | 'map'>('calendar');
+  const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
+  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [employees] = useState<Employee[]>(mockEmployees);
-  const [customers] = useState<Customer[]>(mockCustomers);
-  const [templates] = useState<TaskTemplate[]>(mockTemplates);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showCreateWizard, setShowCreateWizard] = useState(false);
-  
-  // Filters
+  const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showOptimizationPanel, setShowOptimizationPanel] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterSkills, setFilterSkills] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterEmployee, setFilterEmployee] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load tasks
+  // Live location updates (simuleret)
   useEffect(() => {
-    loadTasks();
-  }, [selectedDate, user?.company_id]);
+    const interval = setInterval(() => {
+      setEmployees(prev => prev.map(emp => ({
+        ...emp,
+        currentLocation: emp.currentLocation ? {
+          lat: emp.currentLocation.lat + (Math.random() - 0.5) * 0.001,
+          lng: emp.currentLocation.lng + (Math.random() - 0.5) * 0.001
+        } : undefined
+      })));
+    }, 30000); // Opdater hver 30 sekund
 
-  const loadTasks = async () => {
-    if (!user?.company_id) return;
-    
-    setIsLoading(true);
-    try {
-      const result = await taskService.getTasksByCompany(user.company_id, {
-        date: selectedDate.toISOString().split('T')[0]
-      });
-      
-      if (result.success && result.data) {
-        setTasks(result.data);
-      }
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleTaskCreate = (taskData: Partial<Task>) => {
+    const newTask: Task = {
+      id: Date.now().toString(),
+      ...taskData as Task,
+      createdBy: user?.id || '',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    setTasks(prev => [...prev, newTask]);
   };
 
-  // Filter tasks
+  const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
+    setTasks(prev => prev.map(task => 
+      task.id === taskId 
+        ? { ...task, ...updates, updatedAt: new Date() }
+        : task
+    ));
+  };
+
+  const handleTaskMove = (taskId: string, newEmployeeId: string, newStartTime: Date) => {
+    handleTaskUpdate(taskId, {
+      assignedEmployees: [newEmployeeId],
+      startTime: newStartTime,
+      endTime: new Date(newStartTime.getTime() + (tasks.find(t => t.id === taskId)?.estimatedDuration || 60) * 60000)
+    });
+  };
+
+  const handleRouteOptimization = async (employeeId: string, date: Date) => {
+    setIsLoading(true);
+    
+    // Simuler GraphHopper API kald
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const employeeTasks = tasks.filter(task => 
+      task.assignedEmployees.includes(employeeId) &&
+      task.startTime.toDateString() === date.toDateString()
+    );
+
+    // Simuleret optimering
+    const optimizedOrder = employeeTasks
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+      .map(task => task.id);
+
+    const newRoute: Route = {
+      id: Date.now().toString(),
+      employeeId,
+      date,
+      tasks: employeeTasks,
+      optimizedOrder,
+      totalDistance: Math.random() * 50 + 20,
+      totalDuration: employeeTasks.reduce((sum, task) => sum + task.estimatedDuration, 0),
+      startLocation: { lat: 55.6761, lng: 12.5683 }, // Virksomhedens adresse
+      isOptimized: true
+    };
+
+    setRoutes(prev => [...prev.filter(r => r.employeeId !== employeeId || r.date.toDateString() !== date.toDateString()), newRoute]);
+    setIsLoading(false);
+  };
+
   const filteredTasks = tasks.filter(task => {
-    if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+    if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase()) && 
+        !task.customerName.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
-    
     if (filterStatus !== 'all' && task.status !== filterStatus) {
       return false;
     }
-    
-    if (filterEmployee !== 'all' && !task.assigned_employees.includes(filterEmployee)) {
+    if (filterSkills.length > 0 && !filterSkills.some(skill => task.requiredSkills.includes(skill))) {
       return false;
     }
-    
     return true;
   });
 
-  // Handlers
-  const handleTaskCreated = (task: Task) => {
-    setTasks(prev => [...prev, task]);
+  const getTaskStats = () => {
+    const today = new Date().toDateString();
+    const todayTasks = tasks.filter(task => task.startTime.toDateString() === today);
+    
+    return {
+      total: todayTasks.length,
+      pending: todayTasks.filter(t => t.status === 'pending').length,
+      inProgress: todayTasks.filter(t => t.status === 'in_progress').length,
+      completed: todayTasks.filter(t => t.status === 'completed').length,
+      overdue: todayTasks.filter(t => t.status === 'pending' && t.startTime < new Date()).length
+    };
   };
 
-  const handleTaskClick = (task: Task) => {
-    console.log('Task clicked:', task);
-    // Åbn task detail modal
-  };
-
-  const handleTaskMove = async (taskId: string, newEmployeeId: string, newStartTime: Date) => {
-    try {
-      const result = await taskService.updateTask(taskId, {
-        assigned_employees: [newEmployeeId]
-        // I produktion ville vi også opdatere start_time
-      });
-      
-      if (result.success) {
-        loadTasks(); // Reload tasks
-      }
-    } catch (error) {
-      console.error('Error moving task:', error);
-    }
-  };
-
-  const handleOptimizeRoutes = async () => {
-    setIsLoading(true);
-    try {
-      // Optimer ruter for alle medarbejdere
-      for (const employee of employees) {
-        const employeeTasks = tasks.filter(task => 
-          task.assigned_employees.includes(employee.id)
-        );
-        
-        if (employeeTasks.length > 1) {
-          await routeService.createOrUpdateRoute({
-            employee_id: employee.id,
-            date: selectedDate.toISOString().split('T')[0],
-            task_ids: employeeTasks.map(t => t.id),
-            start_location: { lat: 55.6761, lng: 12.5683 } // Company address
-          });
-        }
-      }
-      
-      console.log('Routes optimized');
-    } catch (error) {
-      console.error('Error optimizing routes:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Statistics
-  const stats = {
-    total: filteredTasks.length,
-    scheduled: filteredTasks.filter(t => t.status === 'scheduled').length,
-    inProgress: filteredTasks.filter(t => t.status === 'in_progress').length,
-    completed: filteredTasks.filter(t => t.status === 'completed').length,
-    conflicts: 0 // Would be calculated based on overlapping times
-  };
+  const stats = getTaskStats();
 
   return (
     <div className="space-y-6">
@@ -220,23 +260,30 @@ export default function TaskManagement() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Opgaver & Ruter</h1>
             <p className="text-gray-600 mt-1">
-              Intelligent opgavestyring med automatisk ruteplanlægning
+              Administrer opgaver, tildel medarbejdere og optimer ruter i realtid
             </p>
           </div>
           
           <div className="flex items-center space-x-3">
             <button
-              onClick={handleOptimizeRoutes}
-              disabled={isLoading}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => setShowTemplateModal(true)}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
             >
-              <Zap className="h-4 w-4 mr-2" />
-              {isLoading ? 'Optimerer...' : 'AI Optimering'}
+              <Settings className="h-4 w-4 mr-2" />
+              Skabeloner
             </button>
             
             <button
-              onClick={() => setShowCreateWizard(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              onClick={() => setShowOptimizationPanel(true)}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              AI Optimering
+            </button>
+            
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
             >
               <Plus className="h-4 w-4 mr-2" />
               Ny opgave
@@ -244,15 +291,15 @@ export default function TaskManagement() {
           </div>
         </div>
 
-        {/* Statistics */}
+        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-blue-50 rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-blue-700">{stats.total}</div>
-            <div className="text-sm text-blue-600">Total</div>
+            <div className="text-sm text-blue-600">I dag</div>
           </div>
           <div className="bg-yellow-50 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-700">{stats.scheduled}</div>
-            <div className="text-sm text-yellow-600">Planlagt</div>
+            <div className="text-2xl font-bold text-yellow-700">{stats.pending}</div>
+            <div className="text-sm text-yellow-600">Afventer</div>
           </div>
           <div className="bg-green-50 rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-green-700">{stats.inProgress}</div>
@@ -263,14 +310,14 @@ export default function TaskManagement() {
             <div className="text-sm text-emerald-600">Afsluttet</div>
           </div>
           <div className="bg-red-50 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-red-700">{stats.conflicts}</div>
-            <div className="text-sm text-red-600">Konflikter</div>
+            <div className="text-2xl font-bold text-red-700">{stats.overdue}</div>
+            <div className="text-sm text-red-600">Forsinkede</div>
           </div>
         </div>
 
-        {/* View toggle and filters */}
+        {/* View Toggle & Filters */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-          {/* View mode */}
+          {/* View Toggle */}
           <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('calendar')}
@@ -315,59 +362,82 @@ export default function TaskManagement() {
               onChange={(e) => setFilterStatus(e.target.value)}
             >
               <option value="all">Alle status</option>
-              <option value="draft">Kladde</option>
-              <option value="scheduled">Planlagt</option>
+              <option value="pending">Afventer</option>
               <option value="in_progress">I gang</option>
               <option value="completed">Afsluttet</option>
             </select>
 
-            <select
+            <input
+              type="date"
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-              value={filterEmployee}
-              onChange={(e) => setFilterEmployee(e.target.value)}
-            >
-              <option value="all">Alle medarbejdere</option>
-              {employees.filter(emp => emp.is_active).map(employee => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.user_id}
-                </option>
-              ))}
-            </select>
+              value={selectedDate.toISOString().split('T')[0]}
+              onChange={(e) => setSelectedDate(new Date(e.target.value))}
+            />
           </div>
         </div>
       </div>
 
-      {/* Main content */}
-      {viewMode === 'calendar' ? (
-        <TaskCalendar
-          tasks={filteredTasks}
-          employees={employees}
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-          onTaskClick={handleTaskClick}
-          onTaskMove={handleTaskMove}
-          onCreateTask={() => setShowCreateWizard(true)}
-        />
-      ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="text-center py-12">
-            <Map className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-lg font-medium text-gray-900">Kortvisning</h3>
-            <p className="mt-1 text-gray-500">
-              Kortvisning med GPS-tracking kommer snart
-            </p>
+      {/* Main Content */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {viewMode === 'calendar' ? (
+          <TaskCalendarView
+            employees={employees}
+            tasks={filteredTasks}
+            selectedDate={selectedDate}
+            onTaskMove={handleTaskMove}
+            onTaskUpdate={handleTaskUpdate}
+            onEmployeeSelect={setSelectedEmployee}
+            selectedEmployee={selectedEmployee}
+          />
+        ) : (
+          <TaskMapView
+            employees={employees}
+            tasks={filteredTasks}
+            routes={routes}
+            selectedDate={selectedDate}
+            onTaskMove={handleTaskMove}
+            onEmployeeSelect={setSelectedEmployee}
+            selectedEmployee={selectedEmployee}
+          />
+        )}
+      </div>
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 flex items-center space-x-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="text-gray-900">Optimerer ruter...</span>
           </div>
         </div>
       )}
 
-      {/* Task Creation Wizard */}
-      {showCreateWizard && (
-        <TaskCreationWizard
-          onClose={() => setShowCreateWizard(false)}
-          onTaskCreated={handleTaskCreated}
-          customers={customers}
+      {/* Modals */}
+      {showCreateModal && (
+        <CreateTaskModal
           employees={employees}
-          templates={templates}
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleTaskCreate}
+        />
+      )}
+
+      {showTemplateModal && (
+        <TaskTemplateModal
+          onClose={() => setShowTemplateModal(false)}
+          onApplyTemplate={(template) => {
+            // Implementer skabelon anvendelse
+            console.log('Apply template:', template);
+          }}
+        />
+      )}
+
+      {showOptimizationPanel && (
+        <RouteOptimizationPanel
+          employees={employees}
+          tasks={tasks}
+          selectedDate={selectedDate}
+          onClose={() => setShowOptimizationPanel(false)}
+          onOptimize={handleRouteOptimization}
         />
       )}
     </div>

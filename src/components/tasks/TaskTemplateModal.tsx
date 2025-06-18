@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Save, Trash2, Copy, Calendar, Clock, User, MapPin, Plus, Search } from 'lucide-react';
+import { X, Save, Trash2, Copy, Calendar, Clock, User, MapPin } from 'lucide-react';
 
 interface TaskTemplate {
   id: string;
@@ -17,17 +17,16 @@ interface TaskTemplate {
   usageCount: number;
 }
 
-interface TaskTemplateManagerProps {
+interface TaskTemplateModalProps {
   onClose: () => void;
   onApplyTemplate: (template: TaskTemplate) => void;
 }
 
-// Mock skabeloner for danske servicevirksomheder som beskrevet
 const mockTemplates: TaskTemplate[] = [
   {
     id: '1',
-    name: 'Ugentlig vinduespolering - Butikker',
-    description: 'Standard vinduespolering for butikker og kontorer med høj kundetrafik',
+    name: 'Ugentlig vinduespolering',
+    description: 'Standard vinduespolering for butikker og kontorer',
     taskType: 'vinduespolering',
     estimatedDuration: 180,
     requiredSkills: ['vinduespolering_trad'],
@@ -35,14 +34,14 @@ const mockTemplates: TaskTemplate[] = [
     isRecurring: true,
     recurrencePattern: 'weekly',
     documentationRequired: false,
-    notes: 'Husk at tjekke for skader på vinduer og rapporter til kunde',
+    notes: 'Husk at tjekke for skader på vinduer',
     createdAt: new Date('2024-01-01'),
     usageCount: 24
   },
   {
     id: '2',
-    name: 'Månedlig dybderengøring - Kontorer',
-    description: 'Komplet rengøring af alle kontorfaciliteter inkl. mødelokaler',
+    name: 'Månedlig dybderengøring',
+    description: 'Komplet rengøring af alle faciliteter',
     taskType: 'rengoring',
     estimatedDuration: 480,
     requiredSkills: ['rengoring', 'gulvbehandling'],
@@ -50,27 +49,27 @@ const mockTemplates: TaskTemplate[] = [
     isRecurring: true,
     recurrencePattern: 'monthly',
     documentationRequired: true,
-    notes: 'Inkluderer alle overflader, køkken, toiletter og specialområder',
+    notes: 'Inkluderer alle overflader og specialområder',
     createdAt: new Date('2024-01-01'),
     usageCount: 12
   },
   {
     id: '3',
-    name: 'Akut rengøring - Spild/uheld',
-    description: 'Hurtig rengøring ved akutte situationer og uheld',
+    name: 'Akut rengøring',
+    description: 'Hurtig rengøring ved akutte situationer',
     taskType: 'rengoring',
     estimatedDuration: 120,
     requiredSkills: ['rengoring'],
     priority: 'urgent',
     isRecurring: false,
     documentationRequired: false,
-    notes: 'Prioriter synlige områder først, dokumenter skader hvis nødvendigt',
+    notes: 'Prioriter synlige områder først',
     createdAt: new Date('2024-01-01'),
     usageCount: 8
   },
   {
     id: '4',
-    name: 'Kvartalvis algerens - Facader',
+    name: 'Kvartalvis algerens',
     description: 'Fjernelse af alger fra facader og udendørsområder',
     taskType: 'algerens',
     estimatedDuration: 360,
@@ -79,44 +78,23 @@ const mockTemplates: TaskTemplate[] = [
     isRecurring: true,
     recurrencePattern: 'quarterly',
     documentationRequired: true,
-    notes: 'Vær opmærksom på vejrforhold, undgå arbejde ved frost',
+    notes: 'Vær opmærksom på vejrforhold',
     createdAt: new Date('2024-01-01'),
     usageCount: 4
-  },
-  {
-    id: '5',
-    name: 'Gulvbehandling - Specialgulve',
-    description: 'Professionel behandling af træ, sten og specialgulve',
-    taskType: 'gulvbehandling',
-    estimatedDuration: 300,
-    requiredSkills: ['gulvbehandling'],
-    priority: 'medium',
-    isRecurring: true,
-    recurrencePattern: 'quarterly',
-    documentationRequired: true,
-    notes: 'Test altid produkter på lille område først',
-    createdAt: new Date('2024-01-01'),
-    usageCount: 6
   }
 ];
 
-export default function TaskTemplateManager({ onClose, onApplyTemplate }: TaskTemplateManagerProps) {
+export default function TaskTemplateModal({ onClose, onApplyTemplate }: TaskTemplateModalProps) {
   const [templates, setTemplates] = useState<TaskTemplate[]>(mockTemplates);
   const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
 
-  // Hurtig søgning og filtrering som beskrevet
-  const filteredTemplates = templates.filter(template => {
-    const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.taskType.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesType = filterType === 'all' || template.taskType === filterType;
-    
-    return matchesSearch && matchesType;
-  });
+  const filteredTemplates = templates.filter(template =>
+    template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    template.taskType.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleApplyTemplate = (template: TaskTemplate) => {
     // Opdater usage count
@@ -179,22 +157,6 @@ export default function TaskTemplateManager({ onClose, onApplyTemplate }: TaskTe
     }
   };
 
-  const getTaskTypeIcon = (taskType: string) => {
-    switch (taskType) {
-      case 'vinduespolering': return '🪟';
-      case 'rengoring': return '🧼';
-      case 'gulvbehandling': return '🧴';
-      case 'algerens': return '🧽';
-      case 'hojtryk': return '💦';
-      case 'fliserens': return '🧹';
-      case 'taepper': return '🧶';
-      case 'specialrens': return '🧪';
-      default: return '⚙️';
-    }
-  };
-
-  const uniqueTaskTypes = [...new Set(templates.map(t => t.taskType))];
-
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -202,19 +164,19 @@ export default function TaskTemplateManager({ onClose, onApplyTemplate }: TaskTe
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-xl px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm: align-middle sm:max-w-7xl sm:w-full sm:p-6">
+        <div className="inline-block align-bottom bg-white rounded-xl px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full sm:p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-lg font-medium text-gray-900">Opgaveskabeloner</h3>
-              <p className="text-sm text-gray-600">Gendan og administrer dine opgaveskabeloner for hurtigere oprettelse</p>
+              <p className="text-sm text-gray-600">Gendan og administrer dine opgaveskabeloner</p>
             </div>
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => setShowCreateForm(true)}
                 className="inline-flex items-center px-3 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Save className="h-4 w-4 mr-2" />
                 Ny skabelon
               </button>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -223,11 +185,11 @@ export default function TaskTemplateManager({ onClose, onApplyTemplate }: TaskTe
             </div>
           </div>
 
-          {/* Search and Filter som beskrevet */}
-          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 md:space-x-4">
-            <div className="relative flex-1">
+          {/* Search */}
+          <div className="mb-6">
+            <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+                <MapPin className="h-5 w-5 text-gray-400" />
               </div>
               <input
                 type="text"
@@ -237,32 +199,16 @@ export default function TaskTemplateManager({ onClose, onApplyTemplate }: TaskTe
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
-            <select
-              className="border border-gray-300 rounded-lg px-3 py-3 text-sm focus:ring-blue-500 focus:border-blue-500"
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-            >
-              <option value="all">Alle typer</option>
-              {uniqueTaskTypes.map(type => (
-                <option key={type} value={type}>
-                  {getTaskTypeIcon(type)} {type}
-                </option>
-              ))}
-            </select>
           </div>
 
-          {/* Templates Grid som beskrevet */}
+          {/* Templates Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTemplates.map(template => (
               <div key={template.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center flex-1">
-                    <div className="text-2xl mr-3">{getTaskTypeIcon(template.taskType)}</div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-md font-medium text-gray-900 truncate">{template.name}</h4>
-                      <p className="text-sm text-gray-600 line-clamp-2 mt-1">{template.description}</p>
-                    </div>
+                  <div className="flex-1">
+                    <h4 className="text-md font-medium text-gray-900 mb-1">{template.name}</h4>
+                    <p className="text-sm text-gray-600 line-clamp-2">{template.description}</p>
                   </div>
                   
                   <div className="flex items-center space-x-1 ml-2">
@@ -319,13 +265,6 @@ export default function TaskTemplateManager({ onClose, onApplyTemplate }: TaskTe
                       )}
                     </div>
                   )}
-
-                  {template.documentationRequired && (
-                    <div className="flex items-center text-xs text-orange-600">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      Dokumentation påkrævet
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex space-x-2">
@@ -351,9 +290,7 @@ export default function TaskTemplateManager({ onClose, onApplyTemplate }: TaskTe
               <Save className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">Ingen skabeloner fundet</h3>
               <p className="mt-1 text-sm text-gray-500">
-                {searchTerm || filterType !== 'all' 
-                  ? 'Prøv at justere din søgning eller filter' 
-                  : 'Opret din første skabelon for at spare tid på opgaveoprettelse'}
+                {searchTerm ? 'Prøv at justere din søgning' : 'Opret din første skabelon for at komme i gang'}
               </p>
             </div>
           )}
@@ -364,12 +301,9 @@ export default function TaskTemplateManager({ onClose, onApplyTemplate }: TaskTe
               <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setSelectedTemplate(null)}></div>
                 
-                <div className="inline-block align-bottom bg-white rounded-xl px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full sm:p-6">
+                <div className="inline-block align-bottom bg-white rounded-xl px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center">
-                      <div className="text-3xl mr-3">{getTaskTypeIcon(selectedTemplate.taskType)}</div>
-                      <h4 className="text-lg font-medium text-gray-900">{selectedTemplate.name}</h4>
-                    </div>
+                    <h4 className="text-lg font-medium text-gray-900">Skabelon detaljer</h4>
                     <button onClick={() => setSelectedTemplate(null)} className="text-gray-400 hover:text-gray-600">
                       <X className="h-5 w-5" />
                     </button>
@@ -377,7 +311,8 @@ export default function TaskTemplateManager({ onClose, onApplyTemplate }: TaskTe
                   
                   <div className="space-y-4">
                     <div>
-                      <p className="text-sm text-gray-600">{selectedTemplate.description}</p>
+                      <h5 className="font-medium text-gray-900">{selectedTemplate.name}</h5>
+                      <p className="text-sm text-gray-600 mt-1">{selectedTemplate.description}</p>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4 text-sm">
@@ -414,15 +349,8 @@ export default function TaskTemplateManager({ onClose, onApplyTemplate }: TaskTe
                     
                     {selectedTemplate.notes && (
                       <div>
-                        <span className="font-medium text-gray-700 block mb-1">Instruktioner:</span>
-                        <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">{selectedTemplate.notes}</p>
-                      </div>
-                    )}
-
-                    {selectedTemplate.documentationRequired && (
-                      <div className="flex items-center text-sm text-orange-600 bg-orange-50 p-2 rounded">
-                        <MapPin className="h-4 w-4 mr-2" />
-                        Dokumentation påkrævet
+                        <span className="font-medium text-gray-700 block mb-1">Noter:</span>
+                        <p className="text-sm text-gray-600">{selectedTemplate.notes}</p>
                       </div>
                     )}
                   </div>
